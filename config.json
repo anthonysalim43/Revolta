@@ -1,0 +1,37 @@
+{
+  "devices": {
+    "SMA/SunnyBoy": {
+      "connection": { "unit_id": 3, "default_fc": 4 },
+      "signals": {
+        "device_type": { "ref": 30053, "fc": 4, "dtype": "u32", "scale": 1, "unit": "" }, 
+        "inverteur_ac_power":   { "ref": 30775, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        "bat_charge":    { "ref": 31393, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        "bat_discharge": { "ref": 31395, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" }
+      }
+    },
+    "SMA/SunnyIsland": {
+      "connection": { "unit_id": 3, "default_fc": 4 },
+      "signals": {
+        "device_type": {"ref": 30053, "fc": 4, "dtype": "u32", "scale": 1, "unit": "" },
+        "grid_power":   {"ref": 30775, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        "bat_charge":    { "ref": 31393, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        "bat_discharge": { "ref": 31395, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        
+        "grid_power_out":   { "ref": 30865, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        "grid_feedin":   { "ref": 30867, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        "pv_power_generated":  { "ref": 30869, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
+        "pv_power_used":  { "ref": 30983, "fc": 4, "dtype": "u32", "scale": 1, "unit": "W" }
+
+      }
+    },
+    "VictronEnergy/MultiGridII": {
+      "connection": { "unit_id": 1, "default_fc": 3 },
+      "signals": {
+        "device_type":{ "ref": 800, "fc": 3, "dtype": "u64", "scale": 1, "unit": "W" },
+        "grid_power": { "ref": 12345, "fc": 3, "dtype": "s32", "scale": 1, "unit": "W" },
+        "bat_charge": { "ref": 842, "fc": 4, "dtype": "s16", "scale": 1, "unit": "W" }
+      }
+    }
+  }
+}
+    
