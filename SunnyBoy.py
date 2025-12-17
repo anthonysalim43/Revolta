@@ -64,54 +64,60 @@ def write_signal(client,sig,unit_id, value):
     #First you need to check the value you are writting is in the range , for exempele:
     #for u16, value should be from 0 to 65535(0xFFFF)
     if dtype == "u16":
+        value=int(round(value*scale))
         if not (0<=value<=0xFFFF):
             raise ValueError(f"value {value} is out of range of u16")
       
-        value=int(round(value*scale))
+       
         reg=value
 
     elif dtype == "s16":
+       value=int(round(value*scale))
        if not (-0x8000<=value<=0x7FFF):
             raise ValueError(f"value {value} is out of range of s16")
        
-       value=int(round(value*scale))
+       
        if value<0:
            value+=0x10000
            
        reg=value
        
     elif dtype == "u32":
+        value=int(round(value*scale))
         if not (0<=value<=0xFFFFFFFF):
             raise ValueError(f"value {value} is out of range of u32")
-        value=int(round(value*scale))
+        
 
         hi=(value>>16 ) & 0xFFFF
         lo=value & 0xFFFF
-        reg=hi,lo
+        reg=[hi,lo]
 
     elif dtype == "s32":
+        value=int(round(value*scale))
         if not (-0x80000000<=value<=0x7FFFFFFF):
             raise ValueError(f"value {value} is out of range of s32")
-        value=int(round(value*scale))
+        
 
         if value<0:
             value+=0x100000000
 
         hi=(value>>16 ) & 0xFFFF
         lo=value & 0xFFFF
-        reg=hi,lo
+        reg=[hi,lo]
         
     else:
         raise ValueError(f"Unsupported dtype: {dtype}")
 
       
-    if fc==6:
-        res=client.write_register(ref,reg,device_id=unit_id)
+    if fc == 6:
+        if isinstance(reg, list):
+          raise ValueError("Value should be an integer and not a list with FC=6")
+        res = client.write_register(ref, reg, device_id=unit_id)
+
     elif fc == 16:
+        if not isinstance(reg, list):
+            reg = [reg]# this line just double check if it is a list/array or not ,because write registers require a list not a single value
         res = client.write_registers(ref, reg, device_id=unit_id)
-           
-   # elif fc == 3:
-      #  res = client.read_holding_registers(ref, count=number_register, device_id=unit_id)
 
     else:
         raise ValueError(f"Unsupported FC {fc}")
@@ -251,6 +257,11 @@ def read_all_raw_signals(client, signals, unit_id):
 
     values = {}
     for name, sig in signals.items():
+
+        access=sig.get("access")
+        if access not in ("r", "rw"):
+            continue 
+        
         values[name] = read_signal(client, sig, unit_id)
 
     return values
@@ -292,6 +303,7 @@ def main():
             Inverter_name="VictronEnergy/MultiGridII"
             IP_address=VIC_IP
             print("You chose Victron Energy Multigrid II Inverter")
+            break
             
         else:
             print("You chose a wrong key, try again")
@@ -315,26 +327,62 @@ def main():
         print("Connected to the Inverter")
 
 
-
         while True:
-            clear_screen()
+            print("\nMenu:")
+            print("  1) Set active power setpoint (W)")
+            print("  2) Display current values")
+            print("  3) Quit")
+            cmd = input("> ").strip()
 
-            values = read_all_raw_signals(client, signals, unit_id)
-            Device_Type(values.get('device_type'))
-            
-            pv = get_metric("pv_power", signals, derived, values)
+            if cmd == "1":
+                
+                en = signals.get("enable_power_exchange")
+                sp = signals.get("power_setpoint")
 
-        #   if battery_charge_status != None :
-        #      print(f"Battery Charging: {bat_charge} W")
-        #    if battery_discharge_status != None :
-        #      print(f"Battery Discharging: -{battery_discharge} W")
+                if not en or not sp:
+                    print("Setpoint not available for this inverter (missing in JSON).")
+                    continue
 
-            print(f"PV Power Generated: {pv} W") 
-            print(f"Grid Power: {values.get('grid_power_out')} W")
-            print(f"Battery Charging: {values.get('bat_charge')} W")
-            print(f"Battery Discharging: -{values.get('bat_discharge')} W")
-            time.sleep(0.5)#pause for a second,reading frequency 1 Hz
+                try:
+                    write_signal(client, en, unit_id, 802)# According to doc , 802 mean active , 803 mean Inactive power setpoint
+                    print("Power control is enabled")
+                except Exception as e:
+                    print(f"Enable failed: {e}")
+                    continue
 
+                # Ask setpoint
+                try:
+                    value = float(input("Enter power setpoint in W ").strip())
+                    write_signal(client, sp, unit_id, value)
+                except Exception as e:
+                    print(f"Write failed: {e}")
+
+            elif cmd == "2":
+
+                values = read_all_raw_signals(client, signals, unit_id)
+               # Device_Type(values.get('device_type'))
+                
+                pv = get_metric("pv_power", signals, derived, values)
+                bat_charge=get_metric("bat_charge", signals, derived, values)
+                bat_discharge=get_metric("bat_discharge", signals, derived, values)
+                grid_power=get_metric("grid_power",signals,derived,values)
+            #   if battery_charge_status != None :
+            #      print(f"Battery Charging: {bat_charge} W")
+            #    if battery_discharge_status != None :
+            #      print(f"Battery Discharging: -{battery_discharge} W")
+
+                print(f"PV Power Generated: {pv} W") 
+                print(f"Grid Power: {grid_power} W")
+                print(f"Battery Charging: {bat_charge} W")
+                print(f"Battery Discharging: -{bat_discharge} W")
+                #time.sleep(0.5)#pause for a second,reading frequency 1 Hz
+
+            elif cmd == "3":
+                print("Thank you goodbye.")
+                break
+
+            else:
+                print("Invalid option.")
 
     except KeyboardInterrupt:
         print("\nStopping on user request (Ctrl+C).")
