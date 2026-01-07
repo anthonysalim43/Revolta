@@ -3,6 +3,64 @@ from pymodbus import ModbusException
 import time 
 import json
 import os 
+import sys
+#31011
+import threading
+
+# Global variable 
+battery_ctrl = False
+desired_power = 0.0
+keepalive_stop = False
+keepalive_period_s = 1.0  
+
+
+def keepalive_worker(client, signals, unit_id):
+    global battery_ctrl, desired_power, keepalive_stop, keepalive_period_s
+
+    last_tx = 0.0
+    while not keepalive_stop:
+        try:
+            
+            if battery_ctrl:
+                
+                now = time.time()
+                if now - last_tx >= keepalive_period_s:
+                    
+                    write_signal(client, signals["power_setpoint"], unit_id, desired_power)
+                    last_tx = now
+        except Exception as e:
+            # Don't crash the thread; just report and keep trying
+            print(f"\n[keepalive] write failed: {e}")
+
+        time.sleep(0.1)  # small sleep so CPU doesnt burn
+
+
+
+def key_pressed():
+    if os.name == "nt":
+        # for window user
+        import msvcrt
+        if msvcrt.kbhit():
+            return msvcrt.getwch()
+        return None
+    else:
+        # for linux
+        import select
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+
+        try:
+            tty.setcbreak(fd)  # non-blocking, no Enter needed
+            rlist, _, _ = select.select([sys.stdin], [], [], 0)
+            if rlist:
+                return sys.stdin.read(1)
+            return None
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
 
 
 def Device_Type(dev_code):
@@ -36,13 +94,11 @@ def write_signal(client,sig,unit_id, value):
 
 
 
-    #sig will come of the format sig  = { "ref": 31395, "fc": 4, "dtype": "s32", "unit": "W" }
-    #This function will get the addresse reference , fetch it using the function code fc , decode it depending on type and scale it 
+     #"enable_power_exchange": { "ref": 40151, "fc": 16, "dtype": "u32", "scale": 1, "unit": "","access":"w" }
     ref   = sig["ref"]
     fc    = sig["fc"]
     dtype = sig["dtype"]
     scale = sig.get("scale", 1)
-
 
     number_register=0
 
@@ -91,9 +147,9 @@ def write_signal(client,sig,unit_id, value):
         hi=(value>>16 ) & 0xFFFF
         lo=value & 0xFFFF
         reg=[hi,lo]
-
     elif dtype == "s32":
         value=int(round(value*scale))
+        
         if not (-0x80000000<=value<=0x7FFFFFFF):
             raise ValueError(f"value {value} is out of range of s32")
         
@@ -117,6 +173,7 @@ def write_signal(client,sig,unit_id, value):
     elif fc == 16:
         if not isinstance(reg, list):
             reg = [reg]# this line just double check if it is a list/array or not ,because write registers require a list not a single value
+        
         res = client.write_registers(ref, reg, device_id=unit_id)
 
     else:
@@ -267,11 +324,50 @@ def read_all_raw_signals(client, signals, unit_id):
     return values
 
 
+def max_bat_charge_discharge(client,signals,unit_id): 
+        
+        max_charge_current=read_signal(client, signals["max_charge_current_A_read"], unit_id)  
+        max_discharge_current=read_signal(client, signals["max_discharge_current_A_read"], unit_id) 
+        if not max_charge_current or not max_discharge_current :
+            print("Setpoint not available for this inverter (missing in JSON).")
+            return  False  
+
+        print(f"Maximum Battery Charge current: {max_charge_current} A | Maximum Battery Discharge current: {max_discharge_current} A")
+        
+        print("\nMenu:")
+        print("  1) Change Maximum Battery Charge current ")
+        print("  2) Change Maximum Battery DisCharge current")
+        print("      Press any other  Button to go back to Main Menu")
+        cmd = input("> ").strip()
+        if cmd=="1":
+            value_max_charge_current_A=signals.get("max_charge_current_A_write")
+            try:
+                value = float(input("choose the maximum battery charge current in A").strip())
+                write_signal(client, value_max_charge_current_A, unit_id, value)
+                return True
+            except Exception as e:
+                print(f"Write failed: {e}")
+                return  False 
+        elif cmd=="2":
+            value_max_discharge_current_A=signals.get("max_discharge_current_A_write")
+
+            try:
+                value = float(input("choose the maximum battery discharge value in A").strip())
+                write_signal(client, value_max_discharge_current_A, unit_id, value)
+                return True 
+            except Exception as e:
+                print(f"Write failed: {e}")
+                return  False 
+        else:
+            return False
+       
 
 def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
 
 def main():
+    global battery_ctrl, desired_power, keepalive_stop, keepalive_period_s
+
     # ---------------------------------------------------------
     #  SMA Sunny Island — Read Device Type + Power Registers
     # s
@@ -279,7 +375,9 @@ def main():
     VIC_IP   = "10.55.55.247"
     SI_IP   = "10.55.55.243"
     SI_PORT = 502
-   
+
+    timeout_s =10 # we will choose a timeout of 30s and then we will keep refreshing it before the 30 s goes 
+    SETPOINT_REFRESH_S = 1 # refresh the power setpoitt every 5 sec 
     while True:
         inverter=input("Please choose a number for your Inverter choice :" \
         "\n Press 1 for SMA Sunny Boy Inverter" \
@@ -321,24 +419,37 @@ def main():
    
 
     client = ModbusTcpClient(IP_address, port=SI_PORT)
+ 
     try :
         if not client.connect():
             raise RuntimeError("Could not connect to the inverter")
         print("Connected to the Inverter")
 
+        t = threading.Thread(target=keepalive_worker, args=(client, signals, unit_id), daemon=True)
+        t.start()#Starting the thread of 
 
         while True:
+           
+
             print("\nMenu:")
-            print("  1) Set active power setpoint (W)")
+            print("  1) Battery Charge/Discharge (W)")
             print("  2) Display current values")
-            print("  3) Quit")
+            print("  4) Set Power fallout value ")
+            print("  5) Max Battery Discharge")
+            print("  press 'q' to quit the programme")
             cmd = input("> ").strip()
 
+
             if cmd == "1":
-                
+                wm_mode = signals.get("wm_mode_cfg")
                 en = signals.get("enable_power_exchange")
                 sp = signals.get("power_setpoint")
+                timeout=signals.get("power_setpoint_timeout_set")
+                apply_fallback=signals.get("power_setpoint_fallback_enable")
 
+                bat_voltage=read_signal(client, signals["bat_voltage"], unit_id)
+                max_charge_current=read_signal(client, signals["max_charge_current_A_read"], unit_id)  
+                max_discharge_current=read_signal(client, signals["max_discharge_current_A_read"], unit_id)
                 if not en or not sp:
                     print("Setpoint not available for this inverter (missing in JSON).")
                     continue
@@ -352,33 +463,116 @@ def main():
 
                 # Ask setpoint
                 try:
-                    value = float(input("Enter power setpoint in W ").strip())
-                    write_signal(client, sp, unit_id, value)
+                    while True :
+                       
+                        bat_voltage=read_signal(client, signals["bat_voltage"], unit_id)
+                        max_charge_current=read_signal(client, signals["max_charge_current_A_read"], unit_id)  
+                        max_discharge_current=read_signal(client, signals["max_discharge_current_A_read"], unit_id)
+                        value = float(input("Enter Battery Charge/Discharge value in W ").strip())
+                    
+
+                        bat_current = value/bat_voltage
+                        max_discharge_power=bat_voltage * max_discharge_current
+                        max_charge_power=bat_voltage*max_charge_current
+
+                        if bat_current > max_discharge_current or  bat_current < -max_charge_current:
+                        
+                            print("Chargin/Discharge is outside the current limite\n")
+                            print(f"Max Charge current: {max_charge_current} A | Max charge power:-{max_charge_power}\n" )
+                            print(f"Max Discharge current: {max_discharge_current} A  | Max discharge power:{max_discharge_power}\n")
+
+                            print("\nMenu:")
+                            print("  1) Choose another Charging/Discharging Power")
+                            print("  2) Change battery max Charge/Discharge current")
+                            print("  3) Go back to Main menu")
+                            cmd = input("> ").strip()    
+
+                            if cmd=="1" :
+                                continue
+
+                            elif cmd=="2":
+                                if max_bat_charge_discharge(client,signals,unit_id):
+                                    print("Battery max current charge/discharge was changed Succesfully !")
+                                    continue#We will go back to the user to press the power charging discharging button 
+                                            # if we choose to forward in the code and not let the user choose the value again make sure you check if the new value is inside the allowed value
+                
+                                else:
+                                    print("Failed to change the maximum battery charge/discharge ")
+                            elif cmd=="3" :
+                                break
+                            else :
+                                print("Invalid option.") 
+                            
+
+                        battery_ctrl=True
+                        desired_power=value
+                        print("Charging/Discharging ")
+                        write_signal(client, wm_mode, unit_id, 1079)
+                        write_signal(client,timeout,unit_id,10)
+                        write_signal(client, sp, unit_id, desired_power)
+                        write_signal(client, apply_fallback, unit_id, 2507 )
+                        break
+                    #     k=key_pressed()
+                        #   if k=="9":
+                        #     break
+                except Exception as e:
+                    print(f"Write failed: {e}")
+            elif cmd=="4":
+                power_setpoint_fallback_value_write = signals.get("power_setpoint_fallback_value_write")
+                if not power_setpoint_fallback_value_write:
+                    print("Setpoint not available for this inverter (missing in JSON).")
+                    continue
+                try:
+                    
+                    value = float(input("choose the power fallback 2").strip())
+                    write_signal(client, power_setpoint_fallback_value_write, unit_id, value)
                 except Exception as e:
                     print(f"Write failed: {e}")
 
-            elif cmd == "2":
-
-                values = read_all_raw_signals(client, signals, unit_id)
-               # Device_Type(values.get('device_type'))
+            elif cmd=="5":
+                if max_bat_charge_discharge(client,signals,unit_id):
+                    print("Battery max current charge/discharge was changed Succesfully !")
                 
-                pv = get_metric("pv_power", signals, derived, values)
-                bat_charge=get_metric("bat_charge", signals, derived, values)
-                bat_discharge=get_metric("bat_discharge", signals, derived, values)
-                grid_power=get_metric("grid_power",signals,derived,values)
-            #   if battery_charge_status != None :
-            #      print(f"Battery Charging: {bat_charge} W")
-            #    if battery_discharge_status != None :
-            #      print(f"Battery Discharging: -{battery_discharge} W")
+                else:
+                    print("Failed to change the maximum battery charge/discharge ")
 
-                print(f"PV Power Generated: {pv} W") 
-                print(f"Grid Power: {grid_power} W")
-                print(f"Battery Charging: {bat_charge} W")
-                print(f"Battery Discharging: -{bat_discharge} W")
-                #time.sleep(0.5)#pause for a second,reading frequency 1 Hz
+                
+            
 
-            elif cmd == "3":
+            elif cmd == "2":
+                while True:
+                  
+                    values = read_all_raw_signals(client, signals, unit_id)
+                # Device_Type(values.get('device_type'))
+                    
+                    pv = get_metric("pv_power", signals, derived, values)
+                    bat_charge=get_metric("bat_charge", signals, derived, values)
+                    bat_discharge=get_metric("bat_discharge", signals, derived, values)
+                    grid_power=get_metric("grid_power",signals,derived,values)
+                    power_setpoint_timeout=get_metric("power_setpoint_timeout",signals,derived,values)
+                    power_setpoint_fallback=get_metric("power_setpoint_fallback_value_read",signals,derived,values)
+                #   if battery_charge_status != None :
+                #      print(f"Battery Charging: {bat_charge} W")
+                #    if battery_discharge_status != None :
+                #      print(f"Battery Discharging: -{battery_discharge} W")
+                    clear_screen()
+                    print(">Live data of the inverteur , please press 9 if you want to stop" )
+                    print(f"Power setpoint fallback behavior: {power_setpoint_fallback} ")
+                    print(f"Timeout setpoint after {power_setpoint_timeout} s")
+                    print(f"PV Power Generated: {pv} W") 
+                    print(f"Grid Power: {grid_power} W")
+                    print(f"Battery Charging: {bat_charge} W")
+                    print(f"Battery Discharging: -{bat_discharge} W")
+                    #time.sleep(0.5)#pause for a second,reading frequency 1 Hz
+                    k=key_pressed()
+                    if k=="9":
+                        break
+                    time.sleep(0.1)#pause for a second,reading frequency 1 Hz
+            elif cmd == "q":
                 print("Thank you goodbye.")
+                keepalive_stop = True
+                time.sleep(0.1)  # allow thread to exit
+
                 break
 
             else:

@@ -3,35 +3,90 @@
     "SMA/SunnyBoy": {
       "connection": { "unit_id": 3, "default_fc": 4 },
       "signals": {
-        "device_type": { "ref": 30053, "fc": 4, "dtype": "u32", "scale": 1, "unit": "" }, 
-        "inverteur_ac_power":   { "ref": 30775, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        "bat_charge":    { "ref": 31393, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        "bat_discharge": { "ref": 31395, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" }
+        "device_type": { "ref": 30053, "fc": 4, "dtype": "u32", "scale": 1, "unit": "","access":"r" }, 
+        "inverter_ac_power":   { "ref": 30775, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r"},
+        "bat_charge":    { "ref": 31393, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r" },
+        "bat_discharge": { "ref": 31395, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r" }
+      },
+       "derived": {
+        "pv_power": { "expr": "inverter_ac_power - bat_discharge + bat_charge", "unit": "W" }
       }
     },
     "SMA/SunnyIsland": {
       "connection": { "unit_id": 3, "default_fc": 4 },
       "signals": {
-        "device_type": {"ref": 30053, "fc": 4, "dtype": "u32", "scale": 1, "unit": "" },
-        "grid_power":   {"ref": 30775, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        "bat_charge":    { "ref": 31393, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        "bat_discharge": { "ref": 31395, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        
-        "grid_power_out":   { "ref": 30865, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        "grid_feedin":   { "ref": 30867, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        "pv_power_generated":  { "ref": 30869, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" },
-        "pv_power_used":  { "ref": 30983, "fc": 4, "dtype": "u32", "scale": 1, "unit": "W" }
 
-      }
+        "device_type": {"ref": 30053, "fc": 4, "dtype": "u32", "scale": 1, "unit": "","access":"r" },
+
+        "grid_power":   {"ref": 30775, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r" },
+
+        "grid_voltage_L1":{"ref": 30783, "fc": 4, "dtype": "u32", "scale": 100, "unit": "V","access":"r" },
+        "grid_voltage_L2":{"ref": 30785, "fc": 4, "dtype": "u32", "scale": 100, "unit": "V","access":"r" },
+        "grid_voltage_L3":{"ref": 30787, "fc": 4, "dtype": "u32", "scale": 100, "unit": "V","access":"r" },
+
+        "grid_current_L1":{"ref": 30977, "fc": 4, "dtype": "s32", "scale": 1000, "unit": "A","access":"r" },
+        "grid_current_L2":{"ref": 30979, "fc": 4, "dtype": "s32", "scale": 1000, "unit": "A","access":"r" },
+        "grid_current_L3":{"ref": 30981, "fc": 4, "dtype": "s32", "scale": 1000, "unit": "A","access":"r" },
+
+
+        "bat_charge":    { "ref": 31393, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r" },
+        "bat_discharge": { "ref": 31395, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W" ,"access":"r"},
+        "bat_current": { "ref": 30843, "fc": 4, "dtype": "s32", "scale": 1000, "unit": "A" ,"access":"r"},
+        "bat_voltage": { "ref": 30851, "fc": 4, "dtype": "u32", "scale": 100, "unit": "V" ,"access":"r"},
+        "bat_SoC": { "ref": 30845, "fc": 4, "dtype": "u32", "scale": 1, "unit": "%" ,"access":"r"},
+
+
+        "pv_power":  { "ref": 30869, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r" },
+
+
+        "grid_power_out":   { "ref": 30865, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r" },
+        "grid_feedin":   { "ref": 30867, "fc": 4, "dtype": "s32", "scale": 1, "unit": "W","access":"r" },
+       
+        
+        "power_setpoint": { "ref": 40149, "fc": 16, "dtype": "s32", "scale": 1, "unit": "W","access":"w" },
+        "enable_power_exchange": { "ref": 40151, "fc": 16, "dtype": "u32", "scale": 1, "unit": "","access":"w" },
+        "wm_mode_cfg": { "ref": 40210, "fc": 16, "dtype": "u32", "scale": 1, "unit": "", "access": "w" },
+
+        "max_charge_current_A_write": { "ref": 40045, "fc": 16, "dtype": "u32", "scale": 1000, "unit": "A", "access": "w" },
+        "max_discharge_current_A_write": { "ref": 40083, "fc": 16, "dtype": "u32", "scale": 1000, "unit": "A", "access": "w" },
+
+
+        "max_charge_current_A_read": { "ref": 40045, "fc": 4, "dtype": "u32", "scale": 1000, "unit": "A", "access": "rw" },
+        "max_discharge_current_A_read": { "ref": 40083, "fc": 4, "dtype": "u32", "scale": 1000, "unit": "A", "access": "rw" },
+        "power_setpoint_timeout": { "ref": 41195, "fc": 3, "dtype": "u32", "scale": 1, "unit": "s", "access": "r" },
+        "power_setpoint_timeout_set": { "ref": 41195, "fc": 16, "dtype": "u32", "scale": 1, "unit": "s", "access": "w" },
+
+        "power_setpoint_fallback": { "ref": 41193, "fc": 3, "dtype": "u32", "scale": 1, "unit": "", "access": "r" },
+        "power_setpoint_fallback_enable": { "ref": 41193, "fc": 16, "dtype": "u32", "scale": 1, "unit": "", "access": "w" },
+
+        "power_setpoint_fallback_value_read": { "ref": 44037, "fc": 3, "dtype": "s32", "scale": 100, "unit": "W", "access": "r" },
+        "power_setpoint_fallback_value_write": { "ref": 44037, "fc": 16, "dtype": "s32", "scale": 100, "unit": "W", "access": "w" }
+    },
+
+      "derived": {
+        "grid_average_voltage": { "expr": "(grid_voltage_L1 + grid_voltage_L2 + grid_voltage_L3)/3", "unit": "V" },
+        "grid_average_current": { "expr": "(grid_current_L1 + grid_current_L2 + grid_current_L3)/3", "unit": "A" }
     },
     "VictronEnergy/MultiGridII": {
-      "connection": { "unit_id": 1, "default_fc": 3 },
+      "connection": { "unit_id": 100, "default_fc": 3 },
       "signals": {
-        "device_type":{ "ref": 800, "fc": 3, "dtype": "u64", "scale": 1, "unit": "W" },
-        "grid_power": { "ref": 12345, "fc": 3, "dtype": "s32", "scale": 1, "unit": "W" },
-        "bat_charge": { "ref": 842, "fc": 4, "dtype": "s16", "scale": 1, "unit": "W" }
+        "device_type":{ "ref": 800, "fc": 3, "dtype": "u64", "scale": 1, "unit": "W" ,"access":"r"},
+        
+        "battery_power": { "ref": 842, "fc": 3, "dtype": "s16", "scale": 1, "unit": "W","access":"r" },
+        
+        "grid_power_l1":{ "ref": 820, "fc": 3, "dtype": "s16", "scale": 1, "unit": "W","access":"r" },
+        "grid_power_l2":{ "ref": 821, "fc": 3, "dtype": "s16", "scale": 1, "unit": "W","access":"r" },
+        "grid_power_l3":{ "ref": 822, "fc": 3, "dtype": "s16", "scale": 1, "unit": "W","access":"r" }
+
+        
+      },
+      "derived": {
+        "grid_power":   { "expr": "grid_power_l1 + grid_power_l2 + grid_power_l3 ", "unit": "W" },
+        "bat_charge": { "expr": "battery_power if battery_power > 0 else 0", "unit": "W" },
+        "bat_discharge": { "expr": "(-battery_power) if battery_power < 0 else 0", "unit": "W" }
       }
     }
   }
+}
 }
     
