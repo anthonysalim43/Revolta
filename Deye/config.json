@@ -1,0 +1,136 @@
+{
+  "devices": {
+    "Deye/HV-3P-SG01HP3": {
+      "connection": { "unit_id": 1, "default_fc": 3 },
+      "word_order":"lsw_msw",
+      "signals": {
+        "device_type": { "read": { "ref": 0, "fc": 3, "dtype": "u16", "scale": 1, "unit": "" } },
+
+
+        "bat_SoC":    { "read": { "ref": 588, "fc": 3, "dtype": "u16", "scale": 1, "unit": "%" } },
+        "bat_SoC2":   { "read": { "ref": 589, "fc": 3, "dtype": "u16", "scale": 1, "unit": "%" } },
+
+        "bat_charge": { "read": { "ref": 590, "fc": 3, "dtype": "s16", "scale": 0.1, "unit": "W" } },
+        "bat_charge2":{ "read": { "ref": 595, "fc": 3, "dtype": "s16", "scale": 0.1, "unit": "W" } },
+
+        "grid_power": { "read": { "ref": 607, "fc": 3, "dtype": "s16", "scale": 1, "unit": "W" } },
+
+        "grid_check_ct_meter": {
+          "read":  { "ref": 344, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "bitfield" },
+          "write": { "ref": 344, "fc": 16, "dtype": "u16", "scale": 1, "unit": "bitfield" }
+        },
+
+        
+
+        
+
+        "tou_time1": {
+          "read":  { "ref": 148, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "HHMM" },
+          "write": { "ref": 148, "fc": 16, "dtype": "u16", "scale": 1, "unit": "HHMM" }
+        },
+        "tou_time2": {
+          "read":  { "ref": 149, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "HHMM" },
+          "write": { "ref": 149, "fc": 16, "dtype": "u16", "scale": 1, "unit": "HHMM" }
+        },
+        "tou_time3": {
+          "read":  { "ref": 150, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "HHMM" },
+          "write": { "ref": 150, "fc": 16, "dtype": "u16", "scale": 1, "unit": "HHMM" }
+        },
+        "tou_time4": {
+          "read":  { "ref": 151, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "HHMM" },
+          "write": { "ref": 151, "fc": 16, "dtype": "u16", "scale": 1, "unit": "HHMM" }
+        },
+        "tou_time5": {
+          "read":  { "ref": 152, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "HHMM" },
+          "write": { "ref": 152, "fc": 16, "dtype": "u16", "scale": 1, "unit": "HHMM" }
+        },
+        "tou_time6": {
+          "read":  { "ref": 153, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "HHMM" },
+          "write": { "ref": 153, "fc": 16, "dtype": "u16", "scale": 1, "unit": "HHMM" }
+        },
+
+       
+        "tou_soc1": {
+          "read":  { "ref": 166, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "%" },
+          "write": { "ref": 166, "fc": 16, "dtype": "u16", "scale": 1, "unit": "%" }
+        },
+        "tou_charge_en1": {
+          "read":  { "ref": 172, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "bitfield" },
+          "write": { "ref": 172, "fc": 16, "dtype": "u16", "scale": 1, "unit": "bitfield" }
+        },
+
+        "max_bat_charge_current_A": {
+          "read":  { "ref": 108, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "A" },
+          "write": { "ref": 108, "fc": 16, "dtype": "u16", "scale": 1, "unit": "A" }
+        },
+        "max_bat_discharge_current_A": {
+          "read":  { "ref": 109, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "A" },
+          "write": { "ref": 109, "fc": 16, "dtype": "u16", "scale": 1, "unit": "A" }
+        },
+        "max_grid_charge_current_A": {
+          "read":  { "ref": 128, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "A" },
+          "write": { "ref": 128, "fc": 16, "dtype": "u16", "scale": 1, "unit": "A" }
+        },
+        "mains_charging_enable": {
+          "read":  { "ref": 130, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "" },
+          "write": { "ref": 130, "fc": 16, "dtype": "u16", "scale": 1, "unit": "" }
+        },
+
+
+        "selling_elec_enable": {
+          "read":  { "ref": 142, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "" },
+          "write": { "ref": 142, "fc": 16, "dtype": "u16", "scale": 1, "unit": "" }
+        },
+        "max_sell_power": {
+          "read":  { "ref": 143, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "W" },
+          "write": { "ref": 143, "fc": 16, "dtype": "u16", "scale": 1, "unit": "W" }
+        },
+        "tou_selling_en": {
+          "read":  { "ref": 146, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "bitfield" },
+          "write": { "ref": 146, "fc": 16, "dtype": "u16", "scale": 1, "unit": "bitfield" }
+        },
+
+
+         "tou_bat_pwr1": {
+          "read":  { "ref": 154, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "raw" },
+          "write": { "ref": 154, "fc": 16, "dtype": "u16", "scale": 1, "unit": "raw" }
+        },
+        "tou_bat_pwr2": {
+          "read":  { "ref": 155, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "raw" },
+          "write": { "ref": 155, "fc": 16, "dtype": "u16", "scale": 1, "unit": "raw" }
+        },
+        "tou_bat_pwr3": {
+          "read":  { "ref": 156, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "raw" },
+          "write": { "ref": 156, "fc": 16, "dtype": "u16", "scale": 1, "unit": "raw" }
+        },
+        "tou_bat_pwr4": {
+          "read":  { "ref": 157, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "raw" },
+          "write": { "ref": 157, "fc": 16, "dtype": "u16", "scale": 1, "unit": "raw" }
+        },
+        "tou_bat_pwr5": {
+          "read":  { "ref": 158, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "raw" },
+          "write": { "ref": 158, "fc": 16, "dtype": "u16", "scale": 1, "unit": "raw" }
+        },
+        "tou_bat_pwr6": {
+          "read":  { "ref": 159, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "raw" },
+          "write": { "ref": 159, "fc": 16, "dtype": "u16", "scale": 1, "unit": "raw" }
+        },
+
+
+
+         "PV_selling_enable": {
+          "read":  { "ref": 145, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "bitfield" },
+          "write": { "ref": 145, "fc": 16, "dtype": "u16", "scale": 1, "unit": "bitfield" }
+        },
+         "max_PV_sell_pwr": {
+          "read":  { "ref": 340, "fc": 3,  "dtype": "u16", "scale": 1, "unit": "W" },
+          "write": { "ref": 340, "fc": 16, "dtype": "u16", "scale": 1, "unit": "W" }
+        }
+      },
+
+      "derived": {
+        "bat_discharge": { "expr": "(-bat_charge) if bat_charge < 0 else 0", "unit": "W" }
+      }
+    }
+  }
+}
