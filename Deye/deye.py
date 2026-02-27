@@ -838,15 +838,8 @@ def main():
     signals = dev.get("signals", {})
     derived = dev.get("derived", {})
 
-    client = ModbusSerialClient(
-        method="rtu",
-        port="COM5",   # change on Windows: "COM3"
-        baudrate=9600,
-        parity="N",
-        stopbits=1,
-        bytesize=8,
-        timeout=1.0
-    )
+    
+    client = ModbusSerialClient(port="COM5",baudrate=9600,parity="N",stopbits=1, bytesize=8,timeout=1.0)
 
     try:
         if not client.connect():
