@@ -7,7 +7,7 @@ import time, json, os
 # --------------------------
 
 def clear_screen():
-    os.system("cls" if os.name == "nt" else "clear")
+    os.system("cls" if os.name == "nt" else "clear")#Linux vs window
 
 
 
@@ -35,7 +35,7 @@ def write_signal(client,sig,unit_id, value,word_order):
 
     if number_register == 0:
      raise ValueError(f"Unsupported dtype: {dtype}")
-
+    
         
 
    
@@ -307,6 +307,195 @@ def hhmm_to_u16(hhmm: str) -> int:
         raise ValueError("Invalid time")
     return hh * 100 + mm
 
+
+
+
+
+def logging_configuration(
+    client,
+    signals: dict,
+    unit_id: int,
+    word_order: str,
+    out_dir: str = "logs",
+    filename_prefix: str = "deye_config_snapshot",
+    hv_power_lsb_w: int = 10,   # HV often uses 10 W/LSB for some power limit regs
+):
+    """
+    Read and log the current configuration registers, print them, and save to a JSON file.
+    Returns: (snapshot_dict, filepath)
+    """
+
+    # Remove duplicates while keeping order
+    list_setting = [
+        "tou_time1","tou_time2","tou_time3","tou_time4","tou_time5","tou_time6",
+        "tou_bat_pwr1","tou_bat_pwr2","tou_bat_pwr3","tou_bat_pwr4","tou_bat_pwr5","tou_bat_pwr6",
+        "tou_soc1",
+        "mains_charging_enable","tou_charge_en1","grid_check_ct_meter",
+        "selling_elec_enable","PV_selling_enable","tou_selling_en",
+        "max_PV_sell_pwr","max_sell_power",
+        "max_bat_charge_current_A","max_bat_discharge_current_A","max_grid_charge_current_A",
+    ]
+    seen = set()
+    list_setting = [k for k in list_setting if not (k in seen or seen.add(k))]
+
+    os.makedirs(out_dir, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = os.path.join(out_dir, f"{filename_prefix}_{ts}.json")
+
+    snapshot = {
+        "timestamp": ts,
+        "unit_id": unit_id,
+        "word_order": word_order,
+        "settings": {}
+    }
+
+    print("\n=== Configuration snapshot ===")
+    for key in list_setting:
+        sig = signals.get(key)
+        if sig is None:
+            print(f"[MISSING] {key} is not defined in config.json")
+            snapshot["settings"][key] = {"status": "missing_in_config"}
+            continue
+
+        if "read" not in sig:
+            print(f"[NO READ] {key} has no read definition")
+            snapshot["settings"][key] = {"status": "no_read_access"}
+            continue
+
+        r = sig["read"]
+        meta = {
+            "ref": r.get("ref"),
+            "fc": r.get("fc"),
+            "dtype": r.get("dtype"),
+            "scale": r.get("scale", 1),
+            "unit": r.get("unit", "")
+        }
+
+        try:
+            value = read_signal(client, sig, unit_id, word_order)
+
+            entry = {"status": "ok", "value": value, **meta}
+
+            # Optional: add a human-friendly engineering conversion for known HV "raw" power limit regs
+            # Your TOU power regs are stored as raw in your JSON ("unit": "raw")
+            if key.startswith("tou_bat_pwr") and meta["unit"] == "raw":
+                entry["value_w"] = int(value) * hv_power_lsb_w  # raw -> W (HV typical)
+            if key in ("max_PV_sell_pwr", "max_sell_power") and meta["unit"] == "W":
+                # In your code you often write these as raw (W/10), so if you want, store an extra guess:
+                # NOTE: remove this if you decide to fix scale in JSON instead (recommended).
+                entry["value_w_guess_if_raw10W"] = int(value) * hv_power_lsb_w
+
+            snapshot["settings"][key] = entry
+            print(f"{key} = {value}")
+
+        except Exception as e:
+            print(f"[ERROR] {key}: {e}")
+            snapshot["settings"][key] = {"status": "error", "error": str(e), **meta}
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, indent=2)
+
+    print(f"\nSaved snapshot to: {filepath}\n")
+    return snapshot, filepath
+
+
+
+
+
+
+
+
+
+def logging_configuration(client, signals, unit_id: int, soc_target_pct: int, bat_power_limit_w: int,word_order,
+                           out_dir: str = "logs",
+                           filename_prefix: str = "deye_config_snapshot",
+                           hv_power_lsb_w: int = 10,):   
+
+    #In thise function we we will log the value of the configuration
+
+    
+    list_setting=["tou_time1","tou_time2","tou_time3","tou_time4","tou_time5","tou_time6",
+    "tou_bat_pwr1","tou_bat_pwr2","tou_bat_pwr3","tou_bat_pwr4","tou_bat_pwr5","tou_bat_pwr6",
+    "tou_soc1","mains_charging_enable","tou_charge_en1","grid_check_ct_meter",
+    "selling_elec_enable","PV_selling_enable","tou_selling_en","max_PV_sell_pwr","max_sell_power"]
+    for key in list_setting:
+
+        if "read" not in signals[key]:
+            print(f"Couldnt read {key}")
+
+        else:
+            value = read_signal(client, signals[key], unit_id,word_order) 
+            print(f"{key} = {value}")
+    
+
+
+
+    os.makedirs(out_dir, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = os.path.join(out_dir, f"{filename_prefix}_{ts}.json")
+
+    snapshot = {
+        "timestamp": ts,
+        "unit_id": unit_id,
+        "word_order": word_order,
+        "settings": {}
+    }
+
+    print("\n Configuration snapshot ")
+    for key in list_setting:
+            sig = signals.get(key)
+            if sig is None:
+                print(f"[MISSING] {key} is not defined in config.json")
+                snapshot["settings"][key] = {"status": "missing_in_config"}
+                continue
+
+            if "read" not in sig:
+                print(f"[NO READ] {key} has no read definition")
+                snapshot["settings"][key] = {"status": "no_read_access"}
+                continue
+
+            r = sig["read"]
+            meta = {
+                "ref": r.get("ref"),
+                "fc": r.get("fc"),
+                "dtype": r.get("dtype"),
+                "scale": r.get("scale", 1),
+                "unit": r.get("unit", "")
+            }
+
+            try:
+                value = read_signal(client, sig, unit_id, word_order)
+
+                entry = {"status": "ok", "value": value, **meta}
+
+               
+                if key.startswith("tou_bat_pwr") and meta["unit"] == "raw":
+                    entry["value_w"] = int(value) * hv_power_lsb_w  # raw -> W (HV typical)
+                if key in ("max_PV_sell_pwr", "max_sell_power") and meta["unit"] == "W":
+                    entry["value_w_guess_if_raw10W"] = int(value) * hv_power_lsb_w
+
+                snapshot["settings"][key] = entry
+                print(f"{key} = {value}")
+
+            except Exception as e:
+                print(f"[ERROR] {key}: {e}")
+                snapshot["settings"][key] = {"status": "error", "error": str(e), **meta}
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, indent=2)
+
+    print(f"\nSaved snapshot to: {filepath}\n")
+    return snapshot, filepath
+
+
+
+    #return values
+ 
+
+
+
+
+
 def set_tou_slot1_all_day(client, signals, unit_id: int, soc_target_pct: int, bat_power_limit_w: int,word_order):
     
     #In order to make sure we are chargin we will set the timeslot 1 all day , so of course the setting will apply immediatly
@@ -336,6 +525,126 @@ def set_tou_slot1_all_day(client, signals, unit_id: int, soc_target_pct: int, ba
 
 
 
+
+
+
+
+import time
+
+def Test2_Write_Readback_Persistence(client, signals, unit_id, word_order, hv_lsb_w=10):
+   
+    test_keys = ["PV_selling_enable", "tou_selling_en", "max_PV_sell_pwr", "max_sell_power"]
+
+    def read_key(k):
+        if k not in signals or "read" not in signals[k]:
+            print(f"[NO READ] {k}")
+            return None
+        return read_signal(client, signals[k], unit_id, word_order)
+
+    def write_key(k, v):
+        if k not in signals or "write" not in signals[k]:
+            raise KeyError(f"No write block for {k}")
+        write_signal(client, signals[k], unit_id, v, word_order)
+
+    #
+    print("\n=== Test 2: Baseline values (before write) ===")
+    baseline = {}
+    for k in test_keys:
+        v = read_key(k)
+        baseline[k] = v
+        if v is None:
+            continue
+
+        if k in ("max_PV_sell_pwr", "max_sell_power"):
+            print(f"{k} = {v} (raw)  ~ {int(v) * hv_lsb_w} W (HV)")
+        else:
+            print(f"{k} = {v}")
+
+   
+    print("\nEnter new values to write (safe test).")
+
+    pv_sell = int(input("PV_selling_enable (Reg145) [0=OFF, 1=ON]: ").strip())
+    pv_sell = 1 if pv_sell else 0
+
+    tou_sell_hex = input("TOU_selling_en (Reg146) as HEX (e.g. 0x0000 disable, 0x00FF enable all days): ").strip().lower()
+    if not tou_sell_hex.startswith("0x"):
+        tou_sell_hex = "0x" + tou_sell_hex
+    tou_sell = int(tou_sell_hex, 16) & 0xFFFF
+
+    pv_export_w = int(input("Max PV export clamp (W) (Reg340): ").strip())
+    total_export_w = int(input("Max total export clamp (W) (Reg143): ").strip())
+
+    
+    pv_export_raw = max(0, min(8000, pv_export_w // hv_lsb_w))
+    total_export_raw = max(0, min(8000, total_export_w // hv_lsb_w))
+
+    monitor_s = int(input("Monitor duration (seconds) [e.g. 300]: ").strip() or "300")
+    poll_s = float(input("Poll period (seconds) [e.g. 10]: ").strip() or "10")
+
+    
+    write_key("PV_selling_enable", pv_sell)
+    write_key("tou_selling_en", tou_sell)
+    write_key("max_PV_sell_pwr", pv_export_raw)
+    write_key("max_sell_power", total_export_raw)
+
+   
+    print("\n=== Immediate read-back ===")
+    expected = {
+        "PV_selling_enable": pv_sell,
+        "tou_selling_en": tou_sell,
+        "max_PV_sell_pwr": pv_export_raw,
+        "max_sell_power": total_export_raw,
+    }
+
+    for k in test_keys:
+        v = read_key(k)
+        if v is None:
+            continue
+        ok = (int(v) == int(expected[k]))
+        tag = "[OK]" if ok else "[MISMATCH]"
+        if k in ("max_PV_sell_pwr", "max_sell_power"):
+            print(f"{tag} {k} = {v} (raw)  ~ {int(v) * hv_lsb_w} W (HV)")
+        else:
+            print(f"{tag} {k} = {v}")
+
+  
+    print(f"\n=== Monitoring for overwrite for {monitor_s}s (every {poll_s}s) ===")
+    t_end = time.time() + monitor_s
+    overwrites = []
+
+    while time.time() < t_end:
+        time.sleep(poll_s)
+        for k in test_keys:
+            v = read_key(k)
+            if v is None:
+                continue
+            if int(v) != int(expected[k]):
+                overwrites.append((time.time(), k, expected[k], v))
+                print(f"[OVERWRITE?] {k}: expected {expected[k]}, got {v}")
+
+    if not overwrites:
+        print("\n=== Result: No overwrites detected ===")
+    else:
+        print("\n=== Result: Overwrites detected (summary) ===")
+        for ts, k, exp, got in overwrites[:10]:
+            print(f"{time.strftime('%H:%M:%S', time.localtime(ts))}  {k}: expected {exp}, got {got}")
+
+    
+    print("\n=== Restoring baseline values ===")
+    for k in test_keys:
+        if baseline[k] is None:
+            print(f"[SKIP RESTORE] {k} (no baseline)")
+            continue
+        try:
+            write_key(k, int(baseline[k]))
+            print(f"[RESTORED] {k} -> {baseline[k]}")
+        except Exception as e:
+            print(f"[RESTORE ERROR] {k}: {e}")
+
+    print("\nTest 2 complete.\n")
+    return baseline, expected, overwrites
+
+
 # --------------------------
 # Main CLI
 # --------------------------
@@ -358,7 +667,7 @@ def Selling_PV_only(client,signals,unit_id,word_order):
     write_signal(client, signals["tou_time1"], unit_id, hhmm_to_u16("0000"),word_order)
     write_signal(client, signals["tou_time2"], unit_id, hhmm_to_u16("2355"),word_order)
 
-    write_signal(client, signals["tou_selling_en"], unit_id, 0x00FF,word_order)#Enabling in this time of use the selling of power
+    write_signal(client, signals["tou_selling_en"], unit_id, 0x000,word_order)#Disable in this time of use the selling from battery
 
 
     pwr = int(input("Battery discharge power (W): ").strip())
@@ -431,6 +740,65 @@ def Selling_battery_only(client,signals,unit_id,word_order):
 
 
 
+
+def Charging_grid_only(client, signals, unit_id, word_order):
+   
+    current_soc = int(read_signal(client, signals["bat_SoC"], unit_id, word_order))
+
+    
+    while True:
+        print(f"Current battery SOC: {current_soc}%")
+        desired_soc = int(input(f"Target SOC for charging (0-100, > {current_soc}): ").strip())
+        desired_soc = max(0, min(100, desired_soc))
+        if desired_soc > current_soc:
+            break
+        print("Invalid SOC target. It must be ABOVE the current SOC to force charging.\n")
+
+   
+    pwr_w = int(input("Grid charging power limit (W): ").strip())
+    pwr_w = max(0, pwr_w)
+
+    
+    pwr_raw = max(0, min(8000, pwr_w // 10))  #
+
+    
+    try:
+        meas = int(read_signal(client, signals["grid_check_ct_meter"], unit_id, word_order))
+        print(f"Grid measurement selection (Reg 344): {meas}  (0=CT, 1=meter)")
+    except Exception:
+        print("Warning: could not read Reg 344 (grid_check_ct_meter).")
+
+    
+    disabling_all_time_slot(client, signals, unit_id, word_order)
+
+   
+    write_signal(client, signals["tou_time1"], unit_id, hhmm_to_u16("0000"), word_order)
+    write_signal(client, signals["tou_time2"], unit_id, hhmm_to_u16("2355"), word_order)
+
+   
+    write_signal(client, signals["tou_soc1"], unit_id, desired_soc, word_order)
+    write_signal(client, signals["tou_bat_pwr1"], unit_id, pwr_raw, word_order)
+
+    
+    write_signal(client, signals["mains_charging_enable"], unit_id, 0x0001, word_order)  
+    write_signal(client, signals["tou_charge_en1"], unit_id, 0x0001, word_order)       
+
+   
+    write_signal(client, signals["tou_selling_en"], unit_id, 0x0000, word_order)       #disable TOU selling
+    write_signal(client, signals["PV_selling_enable"], unit_id, 0x0000, word_order)     #  disable PV export
+    write_signal(client, signals["max_PV_sell_pwr"], unit_id, 0x0000, word_order)       #  clamp PV export to 0 (raw units if HV)
+    write_signal(client, signals["max_sell_power"], unit_id, 0x0000, word_order)        # clamp total export to 0 (raw units if HV)
+
+
+    write_signal(client, signals["selling_elec_enable"], unit_id, 0x0002, word_order)   #  external limiting
+
+    print("\nConfigured: Grid charging (TOU slot1 all day)")
+    print(f"  Target SOC: {desired_soc}%")
+    print(f"  Charge power limit: {pwr_w} W  (raw={pwr_raw})")
+
+
+
+
 def Charging_Discharging_battery_current_limite(client,signals,unit_id,word_order):
     max_bat_charge_current_A = read_signal(client, signals["max_bat_charge_current_A"], unit_id,word_order)
     max_bat_discharge_current_A= read_signal(client, signals["max_bat_discharge_current_A"], unit_id,word_order)
@@ -470,7 +838,6 @@ def main():
     signals = dev.get("signals", {})
     derived = dev.get("derived", {})
 
-    # RTU parameters come from the protocol header: 9600 8N1 :contentReference[oaicite:19]{index=19}
     client = ModbusSerialClient(
         method="rtu",
         port="COM5",   # change on Windows: "COM3"
@@ -490,18 +857,23 @@ def main():
 
         while True:
             print("\nMenu:")
-            print("  1) Display live values")
-            print("  2) Charge from grid All day (TOU slot1)")
-            print("  3) Discharge Battery (PV selling off) (TOU slot1)")
-            print("  4) PV Selling On , Battery discharging off")
+            print("  0) Test 0: Display live values")
+            print("  1) Test 1: Logging the client configuration")
+            print("  2) Test 2: Wrtting and checking if invertuer is Overwritting")
+            print("  3) Test 3: Charging the Battery from the grid")
+            print("  4) Test 4: Discharging the battery to the grid")
+            print("  5) Test 5: Selling PV extra power to the grid") 
+
             print("  5) Checking if ct or Meter")
             print("  6) Charging/Discharging battery Current Limite")
             print("  q) Quit")
 
+           
+
             cmd = input("> ").strip().lower()
 
 
-            if cmd == "1":
+            if cmd == "0":
                 for _ in range(2000000):
                     vals = read_all_raw_signals(client, signals, unit_id,word_order)
                     bat_SoC = get_metric("bat_SoC", signals, derived, vals)
@@ -512,36 +884,40 @@ def main():
                     clear_screen()
                     print("Deye Live:")
                     print(f"  SOC: {bat_SoC:.0f} %")
-                    print(f"  Battery power: {bat_charge:.0f} W (sign depends on inverter convention)")
+                    print(f"  Battery charge power: {bat_charge:.0f} W (sign depends on inverter convention)")
                     print(f"  Bat discharge: {bat_discharge:.0f} W")
                     print(f"  Grid power:    {grid_power:.0f} W")
                     time.sleep(0.5)
-                    
-            elif cmd == "2":
-                soc = int(input("SOC target (0-100): ").strip())
-                pwr = int(input("Battery power limit during slot (W): ").strip())
-                set_tou_slot1_all_day(client, signals, unit_id, soc, pwr,word_order)
-                print("TOU slot1 configured for grid charge (active now).")
+            elif cmd =="1":
+                snapshot, path = logging_configuration(client, signals, unit_id, word_order)
+                print(path)
+                print(snapshot)
 
-            elif cmd=="3":
+            elif cmd=="2":
+                    Test2_Write_Readback_Persistence(client, signals, unit_id, word_order, hv_lsb_w=10)
+            elif cmd == "3":
+
+                Charging_grid_only(client, signals, unit_id, word_order)
+
+            elif cmd=="4":
 
                 Selling_battery_only(client,signals,unit_id,word_order)
             
-            elif cmd=="4":
+            elif cmd=="5":
 
                 Selling_PV_only(client,signals,unit_id,word_order)
 
-            elif cmd=="5":
+            elif cmd=="6":
                 ct_enable=read_signal(client,signals["grid_check_ct_meter"],unit_id,word_order)
                 if ct_enable ==0:
                     print("CT is connected to the Grid")
                 else:
                     print("Meter is connected to the Grid") 
                 
-            elif cmd=="6":
+            elif cmd=="7":
                
                 Charging_Discharging_battery_current_limite(client,signals,unit_id,word_order)
-
+ 
           
 
             elif cmd == "q":
