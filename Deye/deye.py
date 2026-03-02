@@ -311,6 +311,12 @@ def hhmm_to_u16(hhmm: str) -> int:
 
 
 
+
+
+
+
+
+
 def logging_configuration(
     client,
     signals: dict,
@@ -400,7 +406,7 @@ def logging_configuration(
 
 
 
-
+"""
 
 
 
@@ -491,7 +497,7 @@ def logging_configuration(client, signals, unit_id: int, soc_target_pct: int, ba
 
     #return values
  
-
+"""
 
 
 
@@ -527,14 +533,11 @@ def set_tou_slot1_all_day(client, signals, unit_id: int, soc_target_pct: int, ba
 
 
 
-
-
-import time
-
 def Test2_Write_Readback_Persistence(client, signals, unit_id, word_order, hv_lsb_w=10):
    
-    test_keys = ["PV_selling_enable", "tou_selling_en", "max_PV_sell_pwr", "max_sell_power"]
-
+    #test_keys = ["PV_selling_enable", "tou_selling_en", "max_PV_sell_pwr", "max_sell_power"]
+    test_keys =["tou_time1","tou_time2", "tou_soc1", "tou_bat_pwr1", "mains_charging_enable","tou_charge_en1",
+                 "tou_selling_en", "PV_selling_enable", "max_PV_sell_pwr", "max_sell_power", "selling_elec_enable"]
     def read_key(k):
         if k not in signals or "read" not in signals[k]:
             print(f"[NO READ] {k}")
@@ -555,7 +558,8 @@ def Test2_Write_Readback_Persistence(client, signals, unit_id, word_order, hv_ls
         if v is None:
             continue
 
-        if k in ("max_PV_sell_pwr", "max_sell_power"):
+        #if k in ("max_PV_sell_pwr", "max_sell_power"):
+        if k in ("max_sell_power","max_PV_sell_pwr"):
             print(f"{k} = {v} (raw)  ~ {int(v) * hv_lsb_w} W (HV)")
         else:
             print(f"{k} = {v}")
@@ -771,7 +775,6 @@ def Charging_grid_only(client, signals, unit_id, word_order):
     
     disabling_all_time_slot(client, signals, unit_id, word_order)
 
-   
     write_signal(client, signals["tou_time1"], unit_id, hhmm_to_u16("0000"), word_order)
     write_signal(client, signals["tou_time2"], unit_id, hhmm_to_u16("2355"), word_order)
 
@@ -840,7 +843,7 @@ def main():
 
     
     client = ModbusSerialClient(port="COM5",baudrate=9600,parity="N",stopbits=1, bytesize=8,timeout=1.0)
-
+   
     try:
         if not client.connect():
             raise RuntimeError("Could not open serial port")
